@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  
+  <title>Brew & Go - Coffee Order & Cloud Admin</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+  </style>
+</head>
+<body class="bg-amber-50 text-stone-800 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+  <div id="app-card" class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-amber-100 relative transition-all duration-300">
+    
+    <div class="bg-amber-900 text-amber-50 p-4 sm:p-5 text-center relative select-none">
+      <span onclick="handleSecretTap()" class="cursor-pointer text-2xl inline-block transition hover:scale-110" title="Brew & Go">☕</span>
+      <h1 class="text-xl sm:text-2xl font-bold tracking-wide">Brew & Go</h1>
+      <p class="text-amber-200 text-[11px] sm:text-xs mt-0.5" id="app-subtitle">Fresh Coffee, Ready When You Are</p>
+      
+      <button id="admin-logout-btn" onclick="logoutAdmin()" class="hidden absolute top-3 right-3 text-[10px] sm:text-xs bg-red-800 hover:bg-red-700 text-white px-2 py-1 rounded">Logout</button>
+    </div>
+
+    <div id="closed-store-container" class="p-6 sm:p-8 text-center space-y-4 hidden">
+      <div class="w-16 h-16 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center mx-auto text-2xl">🔒</div>
+      <h2 class="text-xl sm:text-2xl font-bold text-stone-800">We Are Closed Today</h2>
+      <p class="text-xs text-stone-600 leading-relaxed">Our store is currently not taking orders right now. Please check back later or during our operating hours!</p>
+    </div>
+
+    <div id="customer-container">
+      <section id="page-1" class="p-4 sm:p-6 space-y-4">
+        <h2 class="text-base sm:text-lg font-bold text-stone-700 border-b pb-2">1. Your Details</h2>
+        <form id="form-page-1" onsubmit="event.preventDefault(); goToPage(2);" class="space-y-3 sm:space-y-4">
+          <div>
+            <label class="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1">Full Name</label>
+            <input type="text" id="cust-name" required placeholder="John Doe" class="w-full p-2.5 sm:p-3 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1">Email Address</label>
+            <input type="email" id="cust-email" required placeholder="johndoe@gmail.com" class="w-full p-2.5 sm:p-3 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1">Contact Number (PH Format)</label>
+            <input type="tel" id="cust-phone" required placeholder="09171234567" pattern="^(09|\+639)\d{9}$" title="Please enter a valid PH mobile number starting with 09 or +639 followed by 9 digits." class="w-full p-2.5 sm:p-3 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+            <span class="text-[10px] text-stone-400 mt-0.5 block">Format: 09171234567 or +639171234567</span>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1">Dining Option</label>
+            <select id="cust-type" required onchange="toggleGuestCount()" class="w-full p-2.5 sm:p-3 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white">
+              <option value="" disabled selected>Select dining option</option>
+              <option value="Dine In">Dine In</option>
+              <option value="Takeout">Takeout</option>
+            </select>
+          </div>
+          
+          <div id="guest-count-container" class="hidden">
+            <label class="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1">Number of Guests</label>
+            <input type="number" id="cust-guests" min="1" placeholder="1" class="w-full p-2.5 sm:p-3 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1">Estimated Time of Arrival (ETA)</label>
+            <select id="cust-eta" required class="w-full p-2.5 sm:p-3 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white">
+              <option value="" disabled selected>Select arrival time</option>
+              <option value="In 15 mins">In 15 mins</option>
+              <option value="In 30 mins">In 30 mins</option>
+              <option value="In 1 hr">In 1 hr</option>
+              <option value="More than an hr">More than an hr</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full bg-amber-800 hover:bg-amber-900 text-white font-semibold py-3 rounded-lg transition duration-200 shadow text-sm">Next: Select Menu</button>
+        </form>
+      </section>
+
+      <section id="page-2" class="p-4 sm:p-6 space-y-4 hidden">
+        <h2 class="text-base sm:text-lg font-bold text-stone-700 border-b pb-2">2. Menu</h2>
+        
+        <div id="customer-category-tabs" class="flex gap-1 overflow-x-auto pb-1 text-xs no-scrollbar"></div>
+
+        <div id="product-list" class="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+          <p class="text-xs text-stone-400 text-center py-4">Loading Menu from Cloud...</p>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button onclick="goToPage(1)" class="w-1/3 border border-stone-300 text-stone-600 font-semibold py-2.5 rounded-lg hover:bg-stone-50 text-xs">Back</button>
+          <button onclick="goToPage(3)" class="w-2/3 bg-amber-800 hover:bg-amber-900 text-white font-semibold py-2.5 rounded-lg transition duration-200 shadow text-xs">Review Order (<span id="cart-count">0</span>)</button>
+        </div>
+      </section>
+
+      <section id="page-3" class="p-4 sm:p-6 space-y-4 hidden">
+        <h2 class="text-base sm:text-lg font-bold text-stone-700 border-b pb-2">3. Review Order</h2>
+        <div class="bg-amber-50 p-3 rounded-lg text-xs space-y-1">
+          <p><strong>Name:</strong> <span id="summary-name"></span></p>
+          <p><strong>Email:</strong> <span id="summary-email"></span></p>
+          <p><strong>Phone:</strong> <span id="summary-phone"></span></p>
+          <p><strong>Option:</strong> <span id="summary-type"></span></p>
+          <p><strong>Pickup ETA:</strong> <span id="summary-eta"></span></p>
+        </div>
+        <div id="cart-summary" class="space-y-2 border-t border-b py-3 text-sm max-h-40 overflow-y-auto"></div>
+        <div class="flex justify-between font-bold text-sm sm:text-base pt-1">
+          <span>Total Amount:</span>
+          <span class="text-amber-900">₱<span id="cart-total">0</span></span>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button onclick="goToPage(2)" class="w-1/2 border border-stone-300 text-stone-600 font-semibold py-2.5 rounded-lg hover:bg-stone-50 text-xs">Add More</button>
+          <button onclick="goToPage(4)" class="w-1/2 bg-amber-800 hover:bg-amber-900 text-white font-semibold py-2.5 rounded-lg transition duration-200 shadow text-xs">Proceed to Pay</button>
+        </div>
+      </section>
+
+      <section id="page-4" class="p-4 sm:p-6 space-y-4 hidden">
+        <h2 class="text-base sm:text-lg font-bold text-stone-700 border-b pb-2">4. Payment</h2>
+        <div class="text-center space-y-3">
+          <p class="text-xs text-stone-500">Send payment of <strong class="text-amber-900 text-sm">₱<span id="payment-total">0</span></strong> via GCash:</p>
+          <p class="text-sm sm:text-base font-bold text-amber-900 bg-amber-100 py-1.5 rounded">09XX-XXX-XXXX</p>
+          <div class="flex justify-center">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=GCashPaymentDummy" alt="Payment QR Code" class="w-28 h-28 sm:w-36 sm:h-36 border-2 border-amber-800 p-1 rounded-lg">
+          </div>
+        </div>
+        <form id="form-page-4" onsubmit="event.preventDefault(); submitOrder();" class="space-y-3 pt-2">
+          <div>
+            <label class="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1">Upload Receipt Screenshot</label>
+            <input type="file" id="receipt-file" accept="image/*" required class="w-full text-xs text-stone-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 cursor-pointer">
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button type="button" onclick="goToPage(3)" class="w-1/3 border border-stone-300 text-stone-600 font-semibold py-2.5 rounded-lg hover:bg-stone-50 text-xs">Back</button>
+            <button type="submit" id="submit-btn" class="w-2/3 bg-amber-800 hover:bg-amber-900 text-white font-semibold py-2.5 rounded-lg transition duration-200 shadow text-xs">Submit Order</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="page-5" class="p-6 space-y-4 text-center hidden">
+        <div class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✓</div>
+        <h2 class="text-xl font-bold text-stone-800">Order Confirmed!</h2>
+        <div class="bg-amber-100 text-amber-900 py-2 px-4 rounded-lg inline-block">
+          <p class="text-[10px] uppercase tracking-wider font-semibold">Order Reference ID</p>
+          <p id="ref-id-display" class="text-lg sm:text-xl font-black tracking-widest"></p>
+        </div>
+        <p class="text-xs text-stone-600 leading-relaxed">Thank you for ordering. Your order has been dispatched directly to our kitchen manager for verification.</p>
+        
+        <div class="pt-3 space-y-2 border-t">
+          <button onclick="resetAndNewOrder()" class="w-full bg-amber-800 hover:bg-amber-900 text-white font-semibold py-2.5 rounded-lg transition duration-200 shadow text-xs">
+            ➕ Place Another Order
+          </button>
+          <a href="#" target="_blank" rel="noopener noreferrer" class="block w-full border border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold py-2.5 rounded-lg transition duration-200 text-xs text-center">
+            👍 Leave a Review on Facebook
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <div id="admin-container" class="p-3 sm:p-6 space-y-4 sm:space-y-6 hidden">
+      
+      <div class="flex flex-wrap gap-1 border-b border-stone-200 text-xs font-bold text-stone-500">
+        <button id="tab-btn-dashboard" onclick="switchAdminTab('dashboard')" class="px-2.5 py-2 border-b-2 border-amber-800 text-amber-900">
+          📊 Overall
+        </button>
+        <button id="tab-btn-orders" onclick="switchAdminTab('orders')" class="px-2.5 py-2 border-b-2 border-transparent hover:text-stone-700 relative inline-flex items-center">
+          Approvals
+          <span id="pending-badge" class="hidden absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center border-2 border-white shadow-sm z-10">0</span>
+        </button>
+        <button id="tab-btn-kanban" onclick="switchAdminTab('kanban')" class="px-2.5 py-2 border-b-2 border-transparent hover:text-stone-700">
+          Kanban
+        </button>
+        <button id="tab-btn-history" onclick="switchAdminTab('history')" class="px-2.5 py-2 border-b-2 border-transparent hover:text-stone-700">
+          📜 History
+        </button>
+        <button id="tab-btn-catalog" onclick="switchAdminTab('catalog')" class="px-2.5 py-2 border-b-2 border-transparent hover:text-stone-700">
+          Menu CRUD
+        </button>
+      </div>
+
+      <div id="tab-content-dashboard" class="space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+          <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center justify-between w-full sm:w-1/2">
+            <div>
+              <h3 class="text-xs font-bold text-stone-800">Store Status</h3>
+              <p class="text-[10px] text-stone-500" id="store-status-text">Checking status...</p>
+            </div>
+            <button id="store-toggle-btn" onclick="toggleStoreStatus()" class="px-2 py-1 rounded text-[11px] font-bold text-white bg-green-700 hover:bg-green-800">
+              Open Shop
+            </button>
+          </div>
+          <button onclick="promptEndSalesToday()" class="w-full sm:w-1/2 bg-red-800 hover:bg-red-900 text-white font-bold text-xs py-2.5 px-2 rounded-xl shadow transition flex items-center justify-center gap-1">
+            🛑 End Sales For Today
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 sm:gap-3">
+          <div class="bg-stone-50 border p-3 rounded-xl">
+            <p class="text-[10px] uppercase font-bold text-stone-400">Today's Revenue</p>
+            <p class="text-lg sm:text-xl font-black text-amber-900 mt-0.5">₱<span id="dash-revenue">0</span></p>
+          </div>
+          <div class="bg-stone-50 border p-3 rounded-xl">
+            <p class="text-[10px] uppercase font-bold text-stone-400">Approved Orders</p>
+            <p class="text-lg sm:text-xl font-black text-stone-800 mt-0.5" id="dash-approved-count">0</p>
+          </div>
+        </div>
+
+        <div class="border p-3 rounded-xl bg-white space-y-2">
+          <div class="flex flex-wrap justify-between items-center gap-1">
+            <h3 class="text-xs font-bold text-stone-700">Realtime Sales Progress</h3>
+            <button onclick="downloadCSVLedger()" class="bg-stone-800 hover:bg-stone-900 text-white text-[10px] font-semibold px-2 py-1 rounded">
+              📥 Save Ledger (CSV)
+            </button>
+          </div>
+          <div class="h-44 w-full relative">
+            <canvas id="salesChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-content-orders" class="hidden space-y-4">
+        <div id="pending-orders-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+          <p class="text-xs text-stone-400 text-center py-4">Loading Pending Orders...</p>
+        </div>
+      </div>
+
+      <div id="tab-content-kanban" class="hidden space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="bg-stone-100 p-3 rounded-xl min-h-[180px]" ondragover="allowDrop(event)" ondrop="drop(event, 'TO_DO')">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 mb-2 border-b pb-1">To-Do 📋</h3>
+            <div id="kanban-TO_DO" class="space-y-2"></div>
+          </div>
+
+          <div class="bg-amber-100/50 p-3 rounded-xl min-h-[180px]" ondragover="allowDrop(event)" ondrop="drop(event, 'IN_PROGRESS')">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-amber-800 mb-2 border-b border-amber-200 pb-1">In Progress ☕</h3>
+            <div id="kanban-IN_PROGRESS" class="space-y-2"></div>
+          </div>
+
+          <div class="bg-green-100/50 p-3 rounded-xl min-h-[180px]" ondragover="allowDrop(event)" ondrop="drop(event, 'DONE')">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-green-800 mb-2 border-b border-green-200 pb-1 flex justify-between items-center">
+              <span>Done Ready 🎉</span>
+              <span class="text-[9px] text-green-700 bg-green-200/60 px-1 rounded">Locked</span>
+            </h3>
+            <div id="kanban-DONE" class="space-y-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-content-history" class="hidden space-y-3">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h3 class="text-xs font-bold text-stone-700">Daily Closed Sales Log History</h3>
+          <button onclick="downloadSalesHistoryCSV()" class="bg-amber-800 hover:bg-amber-900 text-white text-[10px] font-semibold px-2.5 py-1 rounded">
+            📥 Download History CSV
+          </button>
+        </div>
+
+        <div class="max-h-72 overflow-y-auto border rounded-lg w-full">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-stone-100 border-b">
+              <tr>
+                <th class="p-2">Date</th>
+                <th class="p-2">Orders</th>
+                <th class="p-2">Revenue</th>
+                <th class="p-2 text-right">Time</th>
+              </tr>
+            </thead>
+            <tbody id="sales-history-tbody">
+              <tr><td colspan="4" class="p-3 text-center text-stone-400">Loading history...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-content-catalog" class="hidden space-y-4">
+        <form id="crud-product-form" onsubmit="event.preventDefault(); saveProduct();" class="bg-stone-50 p-3 rounded-lg space-y-3 border">
+          <input type="hidden" id="crud-prod-id">
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-stone-600">Product Name</label>
+              <input type="text" id="crud-prod-name" required placeholder="Espresso" class="w-full p-2 text-xs border rounded">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-stone-600">Category</label>
+              <select id="crud-prod-category" required class="w-full p-2 text-xs border rounded bg-white">
+                <option value="Beverages">Beverages</option>
+                <option value="Espresso & Coffee">Espresso & Coffee</option>
+                <option value="Pastries & Food">Pastries & Food</option>
+                <option value="Merchandise">Merchandise</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-stone-600">Price (₱)</label>
+            <input type="number" id="crud-prod-price" required min="1" placeholder="120" class="w-full p-2 text-xs border rounded">
+          </div>
+
+          <div class="flex gap-2">
+            <button type="submit" id="crud-save-btn" class="w-full bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold py-2 rounded">Add Product</button>
+            <button type="button" onclick="resetCrudForm()" class="w-1/3 border text-stone-600 text-xs py-2 rounded hover:bg-stone-100">Cancel</button>
+          </div>
+        </form>
+
+        <div class="max-h-52 overflow-y-auto border rounded-lg">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-stone-100 border-b">
+              <tr>
+                <th class="p-2">Item</th>
+                <th class="p-2">Category</th>
+                <th class="p-2">Price</th>
+                <th class="p-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="crud-product-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="admin-login-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-5 space-y-4">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h3 class="font-bold text-stone-800">Admin Authentication</h3>
+          <button onclick="closeAdminModal()" class="text-stone-400 hover:text-stone-600">✕</button>
+        </div>
+        <form onsubmit="event.preventDefault(); authenticateAdmin();" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600">Email Address</label>
+            <input type="email" id="login-email" required placeholder="admin@example.com" class="w-full p-2 text-xs border rounded">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600">Password</label>
+            <input type="password" id="login-password" required placeholder="••••••••" class="w-full p-2 text-xs border rounded">
+          </div>
+          <button type="submit" id="login-submit-btn" class="w-full bg-amber-900 hover:bg-amber-950 text-white text-xs font-semibold py-2.5 rounded">Login to Dashboard</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="decline-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-5 space-y-4">
+        <div class="border-b pb-2">
+          <h3 class="font-bold text-red-900 text-sm">🔒 Verify Admin Password</h3>
+          <p class="text-[11px] text-stone-500">Please enter password to confirm order rejection.</p>
+        </div>
+        <form onsubmit="event.preventDefault(); executeDeclineOrder();" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600">Admin Password</label>
+            <input type="password" id="decline-pass" required placeholder="••••••••" class="w-full p-2 text-xs border rounded">
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="closeDeclineModal()" class="w-1/2 border text-stone-600 text-xs py-2 rounded">Cancel</button>
+            <button type="submit" id="decline-submit-btn" class="w-1/2 bg-red-800 hover:bg-red-900 text-white text-xs font-bold py-2 rounded">Confirm Decline</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="end-sales-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-5 space-y-4">
+        <div class="border-b pb-2">
+          <h3 class="font-bold text-red-900 text-sm">🔒 Confirm Ending Sales Today</h3>
+          <p class="text-[11px] text-stone-500">This will record sales history, clear the active queue, and close the shop.</p>
+        </div>
+        <form onsubmit="event.preventDefault(); executeEndSalesToday();" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600">Re-enter Admin Password</label>
+            <input type="password" id="endsales-pass" required placeholder="••••••••" class="w-full p-2 text-xs border rounded">
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="closeEndSalesModal()" class="w-1/2 border text-stone-600 text-xs py-2 rounded">Cancel</button>
+            <button type="submit" id="endsales-submit-btn" class="w-1/2 bg-red-800 hover:bg-red-900 text-white text-xs font-bold py-2 rounded">End Day</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="kanban-done-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-5 space-y-4 text-center">
+        <div class="w-10 h-10 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto text-lg font-bold">✓</div>
+        <div>
+          <h3 class="font-bold text-stone-800">Mark Order as Completed?</h3>
+          <p class="text-xs text-stone-500 mt-1">This order will be moved to <strong class="text-green-700">Done & Ready</strong> and locked from future edits.</p>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="closeDoneModal()" class="w-1/2 border text-stone-600 text-xs font-semibold py-2 rounded">Cancel</button>
+          <button onclick="confirmMoveToDone()" class="w-1/2 bg-green-800 hover:bg-green-900 text-white text-xs font-semibold py-2 rounded">Yes, Complete</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="receipt-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50" onclick="closeReceiptModal()">
+      <div class="bg-white rounded-xl p-2 max-w-sm w-full space-y-2" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center border-b pb-1 px-2">
+          <span class="text-xs font-bold text-stone-700">Payment Proof Receipt</span>
+          <button onclick="closeReceiptModal()" class="text-stone-500 font-bold">✕</button>
+        </div>
+        <img id="receipt-modal-img" src="" alt="Payment Receipt" class="w-full max-h-[70vh] object-contain rounded">
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+   const SUPABASE_URL = 'https://svwldanjyiajefsdbrkt.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2d2xkYW5qeWlhamVmc2Ricmt0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNTIxNzcsImV4cCI6MjEwMzkyODE3N30.Os6bLZi0uKok05A2hNSNGRO4XsyHZhLQln8NQOwNSH4';
+
+
+    let _supabase = null;
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+
+    const WEBHOOK_URL = '';
+
+    let products = [];
+    let salesHistory = [];
+    let cart = {};
+    let allOrders = [];
+    let isStoreOpen = true;
+    let secretTapCount = 0;
+    let tapTimer = null;
+    let draggedOrderId = null;
+    let pendingKanbanOrderId = null;
+    let pendingDeclineOrderId = null;
+    let selectedCategory = 'ALL';
+    let salesChartInstance = null;
+    let ordersSubscription = null;
+
+    // Persistent Admin Login State
+    let isAdminLoggedIn = localStorage.getItem('isAdminLoggedIn') === 'true';
+
+    function handleSecretTap() {
+      secretTapCount++;
+      clearTimeout(tapTimer);
+
+      if (secretTapCount >= 3) {
+        secretTapCount = 0;
+        if (isAdminLoggedIn) {
+          openAdminDashboard();
+        } else {
+          document.getElementById('admin-login-modal').classList.remove('hidden');
+        }
+      } else {
+        tapTimer = setTimeout(() => { secretTapCount = 0; }, 1000);
+      }
+    }
+
+    function closeAdminModal() {
+      document.getElementById('admin-login-modal').classList.add('hidden');
+    }
+
+    async function authenticateAdmin() {
+      const emailVal = document.getElementById('login-email').value;
+      const passVal = document.getElementById('login-password').value;
+      const submitBtn = document.getElementById('login-submit-btn');
+
+      if (!_supabase) {
+        alert("Please insert your Supabase URL and Key in the code first.");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Authenticating...';
+
+      const { data, error } = await _supabase.auth.signInWithPassword({
+        email: emailVal,
+        password: passVal
+      });
+
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'Login to Dashboard';
+
+      if (error) {
+        alert(`Authentication failed: ${error.message}`);
+        return;
+      }
+
+      if (data.user) {
+        localStorage.setItem('isAdminLoggedIn', 'true');
+        isAdminLoggedIn = true;
+        closeAdminModal();
+        openAdminDashboard();
+      }
+    }
+
+    function openAdminDashboard() {
+      document.getElementById('app-card').classList.replace('max-w-md', 'max-w-3xl');
+      document.getElementById('customer-container').classList.add('hidden');
+      document.getElementById('closed-store-container').classList.add('hidden');
+      document.getElementById('admin-container').classList.remove('hidden');
+      document.getElementById('admin-logout-btn').classList.remove('hidden');
+      
+      document.getElementById('app-subtitle').innerText = 'Admin Kitchen & Analytics';
+      
+      switchAdminTab('dashboard');
+      fetchOrders();
+      fetchProducts();
+      fetchSalesHistory();
+      updateAdminStatusUI();
+      subscribeToRealtimeOrders();
+    }
+
+    async function logoutAdmin() {
+      if (_supabase) await _supabase.auth.signOut();
+      localStorage.removeItem('isAdminLoggedIn');
+      isAdminLoggedIn = false;
+      unsubscribeFromRealtimeOrders();
+
+      document.getElementById('app-card').classList.replace('max-w-3xl', 'max-w-md');
+      document.getElementById('admin-container').classList.add('hidden');
+      document.getElementById('admin-logout-btn').classList.add('hidden');
+      
+      document.getElementById('app-subtitle').innerText = 'Fresh Coffee, Ready When You Are';
+      checkShopStatusAndRender();
+    }
+
+    // ==================== REALTIME ORDER SUBSCRIPTION ====================
+    function subscribeToRealtimeOrders() {
+      if (!_supabase || ordersSubscription) return;
+
+      ordersSubscription = _supabase
+        .channel('public:orders')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+          fetchOrders();
+        })
+        .subscribe();
+    }
+
+    function unsubscribeFromRealtimeOrders() {
+      if (_supabase && ordersSubscription) {
+        _supabase.removeChannel(ordersSubscription);
+        ordersSubscription = null;
+      }
+    }
+
+    function switchAdminTab(tabName) {
+      ['dashboard', 'orders', 'kanban', 'history', 'catalog'].forEach(tab => {
+        document.getElementById(`tab-content-${tab}`).classList.add('hidden');
+        
+        const btn = document.getElementById(`tab-btn-${tab}`);
+        if (tab === 'orders') {
+          btn.className = 'px-2.5 py-2 border-b-2 border-transparent hover:text-stone-700 relative inline-flex items-center';
+        } else {
+          btn.className = 'px-2.5 py-2 border-b-2 border-transparent hover:text-stone-700';
+        }
+      });
+
+      document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
+      
+      const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+      if (tabName === 'orders') {
+        activeBtn.className = 'px-2.5 py-2 border-b-2 border-amber-800 text-amber-900 font-bold relative inline-flex items-center';
+      } else {
+        activeBtn.className = 'px-2.5 py-2 border-b-2 border-amber-800 text-amber-900 font-bold';
+      }
+    }
+
+    async function submitOrder() {
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Submitting...';
+
+      if (!_supabase) {
+        alert("Supabase is not configured.");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      let receiptPublicUrl = null;
+      const fileInput = document.getElementById('receipt-file');
+      
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await _supabase.storage
+          .from('receipts')
+          .upload(fileName, file);
+
+        if (!uploadError) {
+          const { data: publicUrlData } = _supabase.storage
+            .from('receipts')
+            .getPublicUrl(fileName);
+          receiptPublicUrl = publicUrlData.publicUrl;
+        }
+      }
+
+      const orderRefId = Math.floor(10000 + Math.random() * 90000).toString();
+      const totalAmt = parseFloat(document.getElementById('cart-total').innerText);
+
+      const orderedItems = Object.keys(cart).map(id => {
+        const product = products.find(p => p.id == id);
+        return {
+          id: id,
+          name: product ? product.name : 'Unknown Item',
+          price: product ? product.price : 0,
+          quantity: cart[id],
+          subtotal: product ? product.price * cart[id] : 0
+        };
+      });
+
+      const orderRow = {
+        reference_id: orderRefId,
+        customer_name: document.getElementById('cust-name').value,
+        email: document.getElementById('cust-email').value,
+        customer_phone: document.getElementById('cust-phone').value,
+        dining_option: document.getElementById('cust-type').value,
+        number_of_guests: document.getElementById('cust-guests').value || 'N/A',
+        eta: document.getElementById('cust-eta').value,
+        items: orderedItems,
+        total_amount: totalAmt,
+        receipt_url: receiptPublicUrl,
+        status: 'PENDING'
+      };
+
+      const { error: dbError } = await _supabase.from('orders').insert([orderRow]);
+
+      if (dbError) {
+        alert(`Failed to save order: ${dbError.message}`);
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Submit Order';
+        return;
+      }
+
+      await sendWebhook(orderRow);
+
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'Submit Order';
+      document.getElementById('ref-id-display').innerText = orderRefId;
+      goToPage(5);
+    }
+
+    function resetAndNewOrder() {
+      cart = {};
+      document.getElementById('form-page-1').reset();
+      document.getElementById('form-page-4').reset();
+      document.getElementById('cart-count').innerText = '0';
+      toggleGuestCount();
+      goToPage(1);
+    }
+
+    async function fetchOrders() {
+      if (!_supabase) return;
+
+      const { data, error } = await _supabase.from('orders').select('*').order('id', { ascending: false });
+      if (!error && data) {
+        allOrders = data;
+        renderPendingOrdersBadge();
+        renderPendingOrders();
+        renderKanbanBoard();
+        renderDashboardAnalytics();
+      }
+    }
+
+    function renderPendingOrdersBadge() {
+      const pendingCount = allOrders.filter(o => o.status === 'PENDING').length;
+      const badge = document.getElementById('pending-badge');
+      
+      if (pendingCount > 0) {
+        badge.innerText = pendingCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function renderPendingOrders() {
+      const container = document.getElementById('pending-orders-list');
+      const pendingOrders = allOrders.filter(o => o.status === 'PENDING');
+
+      if (pendingOrders.length === 0) {
+        container.innerHTML = '<p class="text-xs text-stone-400 text-center py-4">No pending orders awaiting approval.</p>';
+        return;
+      }
+
+      container.innerHTML = pendingOrders.map(o => {
+        const orderDate = new Date(o.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+        const itemsList = o.items.map(i => `${i.name} (${i.quantity}x)`).join(', ');
+
+        return `
+          <div class="border border-stone-200 p-3 rounded-lg bg-white space-y-2 text-xs shadow-sm">
+            <div class="flex justify-between items-start border-b pb-1">
+              <div>
+                <span class="font-bold text-amber-900 text-sm">#${o.reference_id}</span>
+                <span class="text-stone-500 block text-[10px]">${orderDate}</span>
+              </div>
+              <span class="font-black text-amber-900 text-sm">₱${o.total_amount}</span>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-stone-600">
+              <p><strong>Customer:</strong> ${o.customer_name}</p>
+              <p><strong>Email:</strong> ${o.email || 'N/A'}</p>
+              <p><strong>Contact:</strong> ${o.customer_phone}</p>
+              <p><strong>ETA:</strong> <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-semibold">${o.eta}</span></p>
+              <p><strong>Option:</strong> ${o.dining_option} (${o.number_of_guests} guests)</p>
+              <p><strong>Items:</strong> ${itemsList}</p>
+            </div>
+
+            <div class="pt-2 flex justify-between items-center border-t">
+              ${o.receipt_url ? `<button onclick="viewReceipt('${o.receipt_url}')" class="text-amber-800 underline font-semibold text-[11px]">View Receipt</button>` : '<span class="text-stone-400 text-[10px]">No Receipt Attached</span>'}
+              <div class="space-x-1">
+                <button onclick="promptDeclineOrder(${o.id})" class="bg-red-100 text-red-700 px-3 py-1 rounded font-semibold hover:bg-red-200">Decline</button>
+                <button onclick="updateOrderStatus(${o.id}, 'TO_DO')" class="bg-green-800 text-white px-3 py-1 rounded font-semibold hover:bg-green-900">Approve</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function promptDeclineOrder(orderId) {
+      pendingDeclineOrderId = orderId;
+      document.getElementById('decline-modal').classList.remove('hidden');
+    }
+
+    function closeDeclineModal() {
+      document.getElementById('decline-modal').classList.add('hidden');
+      document.getElementById('decline-pass').value = '';
+      pendingDeclineOrderId = null;
+    }
+
+    async function executeDeclineOrder() {
+      const password = document.getElementById('decline-pass').value;
+      const user = (await _supabase.auth.getUser()).data.user;
+
+      if (!user) return;
+
+      const submitBtn = document.getElementById('decline-submit-btn');
+      submitBtn.disabled = true;
+
+      const { error: authErr } = await _supabase.auth.signInWithPassword({
+        email: user.email,
+        password: password
+      });
+
+      submitBtn.disabled = false;
+
+      if (authErr) {
+        alert('Invalid admin password.');
+        return;
+      }
+
+      if (pendingDeclineOrderId) {
+        await updateOrderStatus(pendingDeclineOrderId, 'DECLINED');
+        closeDeclineModal();
+      }
+    }
+
+    async function updateOrderStatus(id, newStatus) {
+      if (!_supabase) return;
+      await _supabase.from('orders').update({ status: newStatus }).eq('id', id);
+      fetchOrders();
+    }
+
+    function renderDashboardAnalytics() {
+      const approvedOrders = allOrders.filter(o => ['TO_DO', 'IN_PROGRESS', 'DONE'].includes(o.status));
+      const totalRev = approvedOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+
+      document.getElementById('dash-revenue').innerText = totalRev.toLocaleString();
+      document.getElementById('dash-approved-count').innerText = approvedOrders.length;
+
+      const hourlyData = Array(24).fill(0);
+      approvedOrders.forEach(o => {
+        const hour = new Date(o.created_at).getHours();
+        hourlyData[hour] += Number(o.total_amount);
+      });
+
+      renderChart(hourlyData);
+    }
+
+    function renderChart(hourlyRevenue) {
+      const ctx = document.getElementById('salesChart').getContext('2d');
+      const labels = Array.from({length: 24}, (_, i) => `${i}:00`);
+
+      if (salesChartInstance) salesChartInstance.destroy();
+
+      salesChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Sales (₱)',
+            data: hourlyRevenue,
+            borderColor: '#78350f',
+            backgroundColor: 'rgba(120, 53, 15, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { font: { size: 9 } } },
+            x: { ticks: { font: { size: 8 } } }
+          }
+        }
+      });
+    }
+
+    function downloadCSVLedger() {
+      const approvedOrders = allOrders.filter(o => ['TO_DO', 'IN_PROGRESS', 'DONE'].includes(o.status));
+      if (approvedOrders.length === 0) {
+        alert('No active sales data available to export.');
+        return;
+      }
+
+      let csv = 'Ref ID,Customer Name,Email,Phone,Option,Amount,ETA,Date Created\n';
+      approvedOrders.forEach(o => {
+        csv += `"${o.reference_id}","${o.customer_name}","${o.email || ''}","${o.customer_phone}","${o.dining_option}",${o.total_amount},"${o.eta}","${o.created_at}"\n`;
+      });
+
+      downloadBlob(csv, `Active_Sales_Ledger_${new Date().toISOString().split('T')[0]}.csv`);
+    }
+
+    function downloadSalesHistoryCSV() {
+      if (!salesHistory || salesHistory.length === 0) {
+        alert('No archived sales history logs available to export.');
+        return;
+      }
+
+      let csv = 'Closed Date,Total Orders,Total Revenue,Closed At\n';
+      salesHistory.forEach(h => {
+        csv += `"${h.closed_date}",${h.total_orders},${h.total_revenue},"${h.closed_at}"\n`;
+      });
+
+      downloadBlob(csv, `Closed_Sales_History_${new Date().toISOString().split('T')[0]}.csv`);
+    }
+
+    function downloadBlob(content, filename) {
+      const blob = new Blob([content], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    }
+
+    function promptEndSalesToday() {
+      document.getElementById('end-sales-modal').classList.remove('hidden');
+    }
+
+    function closeEndSalesModal() {
+      document.getElementById('end-sales-modal').classList.add('hidden');
+      document.getElementById('endsales-pass').value = '';
+    }
+
+    async function executeEndSalesToday() {
+      const password = document.getElementById('endsales-pass').value;
+      const user = (await _supabase.auth.getUser()).data.user;
+
+      if (!user) return;
+
+      const submitBtn = document.getElementById('endsales-submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Closing...';
+
+      const { error: authErr } = await _supabase.auth.signInWithPassword({
+        email: user.email,
+        password: password
+      });
+
+      if (authErr) {
+        alert('Invalid admin password.');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'End Day';
+        return;
+      }
+
+      const approvedOrders = allOrders.filter(o => ['TO_DO', 'IN_PROGRESS', 'DONE'].includes(o.status));
+      const totalRev = approvedOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+
+      await _supabase.from('sales_history').insert([{
+        closed_date: new Date().toISOString().split('T')[0],
+        total_revenue: totalRev,
+        total_orders: approvedOrders.length,
+        order_summary: approvedOrders
+      }]);
+
+      const orderIdsToDelete = allOrders.map(o => o.id);
+      if (orderIdsToDelete.length > 0) {
+        await _supabase.from('orders').delete().in('id', orderIdsToDelete);
+      }
+
+      await _supabase.from('shop_config').update({ is_open: false }).eq('id', 1);
+      isStoreOpen = false;
+
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'End Day';
+      closeEndSalesModal();
+
+      alert('Sales today recorded to history. Store is now CLOSED.');
+      fetchOrders();
+      fetchSalesHistory();
+      updateAdminStatusUI();
+    }
+
+    async function fetchSalesHistory() {
+      if (!_supabase) return;
+      const { data } = await _supabase.from('sales_history').select('*').order('id', { ascending: false });
+      salesHistory = data || [];
+      const tbody = document.getElementById('sales-history-tbody');
+
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-stone-400">No closed sales history logs yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(h => `
+        <tr class="border-b">
+          <td class="p-2 font-bold">${h.closed_date}</td>
+          <td class="p-2">${h.total_orders} orders</td>
+          <td class="p-2 text-amber-900 font-bold">₱${h.total_revenue}</td>
+          <td class="p-2 text-right text-stone-400">${new Date(h.closed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderKanbanBoard() {
+      const statuses = ['TO_DO', 'IN_PROGRESS', 'DONE'];
+
+      statuses.forEach(status => {
+        const colContainer = document.getElementById(`kanban-${status}`);
+        const statusOrders = allOrders.filter(o => o.status === status);
+
+        colContainer.innerHTML = statusOrders.map(o => {
+          const isDone = o.status === 'DONE';
+
+          return `
+            <div 
+              draggable="${!isDone}" 
+              ${!isDone ? `ondragstart="drag(event, ${o.id})"` : ''} 
+              class="bg-white p-2.5 rounded-lg border shadow-sm text-xs space-y-1 ${isDone ? 'opacity-75 bg-stone-50 border-green-200 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}"
+            >
+              <div class="flex justify-between font-bold">
+                <span class="text-amber-900">#${o.reference_id}</span>
+                <span>₱${o.total_amount}</span>
+              </div>
+              <p class="font-medium text-stone-700">${o.customer_name}</p>
+              <p class="text-[10px] text-stone-500">${o.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}</p>
+              <div class="pt-1 flex justify-between text-[10px] text-amber-800 font-semibold border-t">
+                <span>${o.dining_option}</span>
+                <span>${isDone ? '🔒 Completed' : `ETA: ${o.eta}`}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      });
+    }
+
+    function allowDrop(ev) { ev.preventDefault(); }
+    function drag(ev, id) { 
+      const order = allOrders.find(o => o.id === id);
+      if (order && order.status === 'DONE') {
+        ev.preventDefault();
+        return;
+      }
+      draggedOrderId = id; 
+    }
+    
+    async function drop(ev, newStatus) {
+      ev.preventDefault();
+      if (!draggedOrderId) return;
+
+      const order = allOrders.find(o => o.id === draggedOrderId);
+      if (order && order.status === 'DONE') {
+        alert('Completed orders are locked and cannot be moved back.');
+        draggedOrderId = null;
+        return;
+      }
+
+      if (newStatus === 'DONE') {
+        pendingKanbanOrderId = draggedOrderId;
+        document.getElementById('kanban-done-modal').classList.remove('hidden');
+      } else {
+        await updateOrderStatus(draggedOrderId, newStatus);
+        draggedOrderId = null;
+      }
+    }
+
+    function closeDoneModal() {
+      document.getElementById('kanban-done-modal').classList.add('hidden');
+      pendingKanbanOrderId = null;
+      draggedOrderId = null;
+    }
+
+    async function confirmMoveToDone() {
+      if (pendingKanbanOrderId) {
+        await updateOrderStatus(pendingKanbanOrderId, 'DONE');
+        closeDoneModal();
+      }
+    }
+
+    async function checkShopStatusAndRender() {
+      if (_supabase) {
+        const { data } = await _supabase.from('shop_config').select('is_open').eq('id', 1).single();
+        if (data) isStoreOpen = data.is_open;
+      }
+
+      const custContainer = document.getElementById('customer-container');
+      const closedContainer = document.getElementById('closed-store-container');
+
+      if (isStoreOpen) {
+        closedContainer.classList.add('hidden');
+        custContainer.classList.remove('hidden');
+        fetchProducts();
+      } else {
+        custContainer.classList.add('hidden');
+        closedContainer.classList.remove('hidden');
+      }
+    }
+
+    async function toggleStoreStatus() {
+      if (!_supabase) return;
+      const nextStatus = !isStoreOpen;
+      const { error } = await _supabase.from('shop_config').update({ is_open: nextStatus }).eq('id', 1);
+
+      if (!error) {
+        isStoreOpen = nextStatus;
+        updateAdminStatusUI();
+      }
+    }
+
+    function updateAdminStatusUI() {
+      const statusText = document.getElementById('store-status-text');
+      const toggleBtn = document.getElementById('store-toggle-btn');
+
+      if (isStoreOpen) {
+        statusText.innerText = 'Shop is OPEN for orders';
+        statusText.className = 'text-[10px] font-semibold text-green-700';
+        toggleBtn.innerText = 'Close Shop';
+        toggleBtn.className = 'px-2 py-1 rounded text-[11px] font-bold text-white bg-red-700 hover:bg-red-800';
+      } else {
+        statusText.innerText = 'Shop is CLOSED to customers';
+        statusText.className = 'text-[10px] font-semibold text-red-700';
+        toggleBtn.innerText = 'Open Shop';
+        toggleBtn.className = 'px-2 py-1 rounded text-[11px] font-bold text-white bg-green-700 hover:bg-green-800';
+      }
+    }
+
+    async function fetchProducts() {
+      if (!_supabase) return;
+      const { data, error } = await _supabase.from('products').select('*').order('id', { ascending: true });
+      if (!error && data) {
+        products = data;
+        renderCustomerCategoryTabs();
+        renderProducts();
+        renderCrudProducts();
+      }
+    }
+
+    function renderCustomerCategoryTabs() {
+      const categories = ['ALL', ...new Set(products.map(p => p.category || 'Beverages'))];
+      const container = document.getElementById('customer-category-tabs');
+
+      container.innerHTML = categories.map(cat => `
+        <button 
+          onclick="filterCategory('${cat}')" 
+          class="px-2.5 py-1 rounded-full whitespace-nowrap text-[11px] font-semibold transition ${selectedCategory === cat ? 'bg-amber-800 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}"
+        >
+          ${cat}
+        </button>
+      `).join('');
+    }
+
+    function filterCategory(cat) {
+      selectedCategory = cat;
+      renderCustomerCategoryTabs();
+      renderProducts();
+    }
+
+    async function saveProduct() {
+      const idInput = document.getElementById('crud-prod-id').value;
+      const nameInput = document.getElementById('crud-prod-name').value;
+      const categoryInput = document.getElementById('crud-prod-category').value;
+      const priceInput = parseFloat(document.getElementById('crud-prod-price').value);
+
+      if (!_supabase) return;
+      if (idInput) {
+        await _supabase.from('products').update({ name: nameInput, category: categoryInput, price: priceInput }).eq('id', idInput);
+      } else {
+        await _supabase.from('products').insert([{ name: nameInput, category: categoryInput, price: priceInput }]);
+      }
+
+      resetCrudForm();
+      fetchProducts();
+    }
+
+    async function deleteProduct(id) {
+      if (confirm('Delete this product from online catalog?')) {
+        if (_supabase) {
+          await _supabase.from('products').delete().eq('id', id);
+          delete cart[id];
+          fetchProducts();
+        }
+      }
+    }
+
+    function renderCrudProducts() {
+      const tbody = document.getElementById('crud-product-tbody');
+      tbody.innerHTML = products.map(p => `
+        <tr class="border-b">
+          <td class="p-2 font-medium">${p.name}</td>
+          <td class="p-2 text-stone-500">${p.category || 'Beverages'}</td>
+          <td class="p-2">₱${p.price}</td>
+          <td class="p-2 text-right space-x-1">
+            <button onclick="editProduct(${p.id})" class="text-blue-600 hover:underline">Edit</button>
+            <button onclick="deleteProduct(${p.id})" class="text-red-600 hover:underline">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function editProduct(id) {
+      const prod = products.find(p => p.id == id);
+      if (prod) {
+        document.getElementById('crud-prod-id').value = prod.id;
+        document.getElementById('crud-prod-name').value = prod.name;
+        document.getElementById('crud-prod-category').value = prod.category || 'Beverages';
+        document.getElementById('crud-prod-price').value = prod.price;
+        document.getElementById('crud-save-btn').innerText = 'Update Product';
+      }
+    }
+
+    function resetCrudForm() {
+      document.getElementById('crud-prod-id').value = '';
+      document.getElementById('crud-prod-name').value = '';
+      document.getElementById('crud-prod-category').value = 'Beverages';
+      document.getElementById('crud-prod-price').value = '';
+      document.getElementById('crud-save-btn').innerText = 'Add Product';
+    }
+
+    function renderProducts() {
+      const container = document.getElementById('product-list');
+      const filtered = selectedCategory === 'ALL' 
+        ? products 
+        : products.filter(p => (p.category || 'Beverages') === selectedCategory);
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-xs text-stone-400 text-center py-4">No items available in this category.</p>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(p => `
+        <div class="flex items-center justify-between p-2.5 sm:p-3 border rounded-lg hover:border-amber-300 transition">
+          <div>
+            <span class="text-[9px] uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">${p.category || 'Beverages'}</span>
+            <p class="font-semibold text-xs sm:text-sm mt-0.5">${p.name}</p>
+            <p class="text-xs text-stone-500">₱${p.price}</p>
+          </div>
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <button onclick="updateQty(${p.id}, -1)" class="w-6 h-6 sm:w-7 sm:h-7 bg-stone-200 rounded-full font-bold text-stone-700 hover:bg-stone-300 flex items-center justify-center text-xs sm:text-sm">-</button>
+            <span id="qty-${p.id}" class="text-xs sm:text-sm font-semibold w-4 text-center">${cart[p.id] || 0}</span>
+            <button onclick="updateQty(${p.id}, 1)" class="w-6 h-6 sm:w-7 sm:h-7 bg-amber-800 rounded-full font-bold text-white hover:bg-amber-900 flex items-center justify-center text-xs sm:text-sm">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateQty(id, change) {
+      cart[id] = (cart[id] || 0) + change;
+      if (cart[id] <= 0) delete cart[id];
+      const el = document.getElementById(`qty-${id}`);
+      if (el) el.innerText = cart[id] || 0;
+      
+      const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
+      document.getElementById('cart-count').innerText = totalItems;
+    }
+
+    function toggleGuestCount() {
+      const diningType = document.getElementById('cust-type').value;
+      const container = document.getElementById('guest-count-container');
+      const guestInput = document.getElementById('cust-guests');
+
+      if (diningType === 'Dine In') {
+        container.classList.remove('hidden');
+        guestInput.setAttribute('required', 'true');
+      } else {
+        container.classList.add('hidden');
+        guestInput.removeAttribute('required');
+        guestInput.value = '';
+      }
+    }
+
+    function goToPage(pageNumber) {
+      if (pageNumber === 3 && Object.keys(cart).length === 0) {
+        alert('Please add at least one item to your cart.');
+        return;
+      }
+
+      document.querySelectorAll('#customer-container > section').forEach(sec => sec.classList.add('hidden'));
+      document.getElementById(`page-${pageNumber}`).classList.remove('hidden');
+
+      if (pageNumber === 3) renderReview();
+    }
+
+    function renderReview() {
+      const type = document.getElementById('cust-type').value;
+      const guests = document.getElementById('cust-guests').value;
+      const typeText = type === 'Dine In' ? `Dine In (${guests} guest${guests > 1 ? 's' : ''})` : 'Takeout';
+
+      document.getElementById('summary-name').innerText = document.getElementById('cust-name').value;
+      document.getElementById('summary-email').innerText = document.getElementById('cust-email').value;
+      document.getElementById('summary-phone').innerText = document.getElementById('cust-phone').value;
+      document.getElementById('summary-type').innerText = typeText;
+      document.getElementById('summary-eta').innerText = document.getElementById('cust-eta').value;
+
+      let total = 0;
+      const summaryContainer = document.getElementById('cart-summary');
+      summaryContainer.innerHTML = '';
+
+      Object.keys(cart).forEach(id => {
+        const product = products.find(p => p.id == id);
+        if (product) {
+          const itemTotal = product.price * cart[id];
+          total += itemTotal;
+          summaryContainer.innerHTML += `
+            <div class="flex justify-between text-xs">
+              <span>${product.name} x ${cart[id]}</span>
+              <span class="font-semibold">₱${itemTotal}</span>
+            </div>
+          `;
+        }
+      });
+
+      document.getElementById('cart-total').innerText = total;
+      document.getElementById('payment-total').innerText = total;
+    }
+
+    function viewReceipt(url) {
+      document.getElementById('receipt-modal-img').src = url;
+      document.getElementById('receipt-modal').classList.remove('hidden');
+    }
+
+    function closeReceiptModal() {
+      document.getElementById('receipt-modal').classList.add('hidden');
+    }
+
+    async function sendWebhook(payload) {
+      if (!WEBHOOK_URL || WEBHOOK_URL.trim() === '') return;
+      try {
+        await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (error) {
+        console.error('Webhook Error:', error);
+      }
+    }
+
+    // Initialize Page State
+    if (isAdminLoggedIn) {
+      openAdminDashboard();
+    } else {
+      checkShopStatusAndRender();
+    }
+  </script>
+</body>
+</html>
