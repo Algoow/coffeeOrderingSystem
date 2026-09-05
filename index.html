@@ -28,12 +28,11 @@
   <div id="app-card" class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-amber-100 relative transition-all duration-300">
     
     <div class="bg-amber-900 text-amber-50 p-4 sm:p-5 text-center relative select-none">
-      <span onclick="handleSecretTap()" class="cursor-pointer text-2xl inline-block transition hover:scale-110" title="Brew & Go">☕</span>
+      <span onclick="handleSecretTap()" class="cursor-default text-2xl inline-block transition hover:scale-110" title="Brew & Go">☕</span>
       <h1 class="text-xl sm:text-2xl font-bold tracking-wide">Brew & Go</h1>
       <p class="text-amber-200 text-[11px] sm:text-xs mt-0.5" id="app-subtitle">Fresh Coffee, Ready When You Are</p>
       
-      <button id="admin-logout-btn" onclick="logoutAdmin()" class="hidden absolute top-3 right-3 text-[10px] sm:text-xs bg-red-800 hover:bg-red-700 text-white px-2 py-1 rounded">Logout</button>
-    </div>
+      </div>
 
     <div id="closed-store-container" class="p-6 sm:p-8 text-center space-y-4 hidden">
       <div class="w-16 h-16 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center mx-auto text-2xl">🔒</div>
@@ -182,6 +181,8 @@
         <button id="tab-btn-catalog" onclick="switchAdminTab('catalog')" class="px-2.5 py-2 border-b-2 border-transparent hover:text-stone-700">
           Inventory
         </button>
+         <button id="admin-logout-btn" onclick="logoutAdmin()" class="hidden mx-5 px-2.5 py-2  bg-red-800 hover:bg-red-700 text-white rounded">Logout</button>
+   
       </div>
 
       <div id="tab-content-dashboard" class="space-y-4">
@@ -432,7 +433,19 @@
         </div>
       </div>
     </div>
-
+<div id="logout-confirm-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-5 space-y-4 text-center">
+        <div class="w-10 h-10 bg-red-100 text-red-800 rounded-full flex items-center justify-center mx-auto text-lg font-bold">🚪</div>
+        <div>
+          <h3 class="font-bold text-stone-800 text-sm">Confirm Logout</h3>
+          <p class="text-xs text-stone-500 mt-1">Are you sure you want to end your admin session?</p>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="closeLogoutModal()" class="w-1/2 border border-stone-300 text-stone-600 text-xs font-semibold py-2 rounded hover:bg-stone-50 transition">Cancel</button>
+          <button onclick="executeLogoutAdmin()" class="w-1/2 bg-red-800 hover:bg-red-900 text-white text-xs font-semibold py-2 rounded shadow transition">Logout</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -549,7 +562,16 @@
       subscribeToRealtimeOrders();
     }
 
-    async function logoutAdmin() {
+    function logoutAdmin() {
+      document.getElementById('logout-confirm-modal').classList.remove('hidden');
+    }
+
+    function closeLogoutModal() {
+      document.getElementById('logout-confirm-modal').classList.add('hidden');
+    }
+
+    async function executeLogoutAdmin() {
+      closeLogoutModal();
       if (_supabase) await _supabase.auth.signOut();
       localStorage.removeItem('isAdminLoggedIn');
       isAdminLoggedIn = false;
@@ -557,7 +579,6 @@
 
       document.getElementById('app-card').classList.replace('max-w-3xl', 'max-w-md');
       document.getElementById('admin-container').classList.add('hidden');
-      document.getElementById('admin-logout-btn').classList.add('hidden');
       
       document.getElementById('app-subtitle').innerText = 'Fresh Coffee, Ready When You Are';
       checkShopStatusAndRender();
